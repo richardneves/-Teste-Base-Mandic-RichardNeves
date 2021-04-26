@@ -1,0 +1,111 @@
+---
+- name: Instalar
+  gather_facts: No
+  hosts: machine
+  become: true
+  
+  tasks:
+    - name: Instalar utils
+      yum:
+        name: yum-utils
+        state: latest
+
+    - name: Adicionar epel-release repo
+      yum:
+        name: epel-release
+        state: present
+
+# instalação nginx
+        
+    - name: Instalar nginx
+      yum:
+        name: nginx
+        state: present
+
+    - name: Reverse proxy config
+      template:
+        src: nginx.conf
+        dest: /etc/nginx/nginx.conf
+
+    - name: Iniciar nginx
+      service: 
+        name: nginx
+        state: started
+
+# SELinux
+
+    - name: Desativado.
+      selinux:
+        policy: targeted
+        state: permissive
+     
+# firewall
+
+    - name: Liberação porta 80
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: 80
+
+# Docker e docker-compose
+
+    - name: Add Docker
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docer-ce.repo
+      become: yes
+
+    - name: Docker repo
+      ini_file:
+        dest: /etc/yum.repos.d/docer-ce.repo
+        section: 'docker-ce-edge'
+        option: enabled
+        value: 0
+      become: yes
+
+    - name: Ativar Docker Test repo
+      ini_file:
+        dest: /etc/yum.repos.d/docer-ce.repo
+        section: 'docker-ce-test'
+        option: enabled
+        value: 0
+      become: yes
+
+    - name: Instalação do Docker
+      package:
+        name: docker-ce
+        state: latest
+      become: yes
+
+    - name: Ativar Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+      become: yes
+              
+    - name: Instalar docker-compose
+      get_url: 
+       url : https://github.com/docker/compose/releases/download/1.29.0/docker-compose-Linux-x86_64
+       dest: /usr/bin/docker-compose
+       mode: 'a+x'
+        
+# Site
+    - name: site 
+      template:
+        src: index.html
+        dest: /usr/share/nginx/html/index.html
+       
+# Docker-compose
+
+    - name: docker-compose
+      copy: 
+        src: docker-compose.yaml
+        dest: /tmp/docker-compose.yaml
+        
+# Play docker-compose
+
+    - name: Inicia docker-compose
+      shell: docker-compose -f /tmp/docker-compose.yaml up -d
+   
+
